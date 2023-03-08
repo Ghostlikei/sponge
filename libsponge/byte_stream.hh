@@ -1,7 +1,20 @@
 #ifndef SPONGE_LIBSPONGE_BYTE_STREAM_HH
 #define SPONGE_LIBSPONGE_BYTE_STREAM_HH
 
+#define SPONGE_LIBSPONGE_BYTE_STREAM_DEBUG
+
 #include <string>
+#include <vector>
+#include <assert.h>
+
+#pragma once
+
+/**
+ * @brief Trying to design a "Circular buffer"
+ * write-end, read_end can fully use the memory of buffer
+ * Cause it is used within single-thread, we don't need to make
+ * operations atomic.
+*/
 
 //! \brief An in-order byte stream.
 
@@ -17,6 +30,28 @@ class ByteStream {
     // that's a sign that you probably want to keep exploring
     // different approaches.
 
+    /**
+     * @brief length of buffer memory
+    */
+    size_t _capacity;
+    /**
+     * @brief record byte occupied, simplify implementation of interfaces 
+    */
+    size_t _size;
+    /**
+     * @note We need a "fixed length" buffer memory
+     * Temporarily, use std::vector for "safe allocate"
+    */ 
+    std::vector<char> _buffer;
+    /**
+     * @note Maintain a write-end and read_end to manipulate write() and read()
+     * This is enlightened by std::iterator
+    */
+    size_t _write_end;
+    size_t _read_end;
+
+    bool _input;
+
     bool _error{};  //!< Flag indicating that the stream suffered an error.
 
   public:
@@ -26,15 +61,23 @@ class ByteStream {
     //! \name "Input" interface for the writer
     //!@{
 
-    //! Write a string of bytes into the stream. Write as many
-    //! as will fit, and return how many were written.
-    //! \returns the number of bytes accepted into the stream
+    /**
+     * @return the number of bytes accepted into the stream
+     * @param string data to be written
+     * @note There would be 3 cases in circular buffer:
+     * Case1: (normal write)
+     * Case2: (cross-edge write)
+     * Case3: (chase write)
+    */
     size_t write(const std::string &data);
 
     //! \returns the number of additional bytes that the stream has space for
     size_t remaining_capacity() const;
 
     //! Signal that the byte stream has reached its ending
+    /**
+     * @note Not very clear what is this doing
+    */
     void end_input();
 
     //! Indicate that the stream suffered an error.
@@ -46,9 +89,21 @@ class ByteStream {
 
     //! Peek at next "len" bytes of the stream
     //! \returns a string
+    /**
+     * @note peek() contains two senarios:
+     * Case1: read_index < write_index (normal peek)
+     * Case2: read_index >= write_index (cross-edge peek), eof excluded
+     * Case3: right remaining > len (right peek)
+    */
     std::string peek_output(const size_t len) const;
 
     //! Remove bytes from the buffer
+    /**
+     * @note pop() contains two senarios:
+     * Case1: read_index < write_index (normal read)
+     * Case2: read_index >= write_index (cross-edge read), eof excluded
+     * Case3: right remaining > len (right read)
+    */
     void pop_output(const size_t len);
 
     //! Read (i.e., copy and then pop) the next "len" bytes of the stream
