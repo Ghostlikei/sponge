@@ -54,6 +54,8 @@ class StreamReassembler {
     //! \returns `true` if no substrings are waiting to be assembled
     bool empty() const;
 
+    size_t first_unassembled_index() const { return _first_unassembled; }
+
   private:
     //! helper functions
     void _write_substring();
